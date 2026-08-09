@@ -24,6 +24,8 @@
 --wo-bg: rgba(139, 92, 246, 0.1);
 --ot: #f59e0b;
 --ot-bg: rgba(245, 158, 11, 0.1);
+--hd: #06b6d4;
+--hd-bg: rgba(6, 182, 212, 0.1);
 }
 
 * {
@@ -174,7 +176,7 @@ text-shadow: 0 0 10px var(--primary-glow);
 
 .stats-grid {
 display: grid;
-grid-template-columns: repeat(5, 1fr);
+grid-template-columns: repeat(3, 1fr);
 gap: 6px;
 margin-bottom: 1.2rem;
 }
@@ -196,6 +198,7 @@ background: rgba(0,0,0,0.2);
 .bg-ot { color: var(--ot); border-color: rgba(245, 158, 11, 0.3); }
 .bg-pl { color: var(--pl); border-color: rgba(59, 130, 246, 0.3); }
 .bg-wo { color: var(--wo); border-color: rgba(139, 92, 246, 0.3); }
+.bg-hd { color: var(--hd); border-color: rgba(6, 182, 212, 0.3); }
 
 /* --- Calendar UI --- */
 .calendar-actions {
@@ -295,6 +298,8 @@ overflow: hidden;
 .status-WO .day-status { color: var(--wo); }
 .status-OT { border-color: var(--ot); background: var(--ot-bg); }
 .status-OT .day-status { color: var(--ot); }
+.status-HD { border-color: var(--hd); background: var(--hd-bg); }
+.status-HD .day-status { color: var(--hd); }
 
 /* --- Modal --- */
 #status-modal {
@@ -327,6 +332,7 @@ cursor: pointer;
 .btn-ot { background: var(--ot); color: #000; }
 .btn-pl { background: var(--pl); }
 .btn-wo { background: var(--wo); }
+.btn-hd { background: var(--hd); color: #000; }
 .btn-none { background: rgba(255,255,255,0.1); color: var(--text-main); }
 
 .close-modal-btn {
@@ -387,6 +393,7 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <div class="stat-card bg-a">A <span id="count-A">0</span></div>
 <div class="stat-card bg-ot">OT <span id="count-OT">0</span></div>
 <div class="stat-card bg-pl">PL <span id="count-PL">0</span></div>
+<div class="stat-card bg-hd">HD <span id="count-HD">0</span></div>
 <div class="stat-card bg-wo">WO <span id="count-WO">0</span></div>
 </div>
 
@@ -418,7 +425,8 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <!-- Modified OT Button -->
 <button class="status-btn btn-ot" id="btn-ot-trigger">Overtime (OT)</button>
 <button class="status-btn btn-pl" data-status="PL">Paid Leave (PL)</button>
-<button class="status-btn btn-wo btn-full" data-status="WO">Weekly Off (WO)</button>
+<button class="status-btn btn-hd" data-status="HD">Half Day (HD)</button>
+<button class="status-btn btn-wo" data-status="WO">Weekly Off (WO)</button>
 <button class="status-btn btn-none btn-full" data-status="None">Clear Entry</button>
 
 <!-- New Hidden OT Hours Container -->
@@ -604,7 +612,7 @@ calendar.appendChild(dayDiv);
 }
 
 function processAnalytics() {
-const counts = { P: 0, A: 0, OT: 0, PL: 0, WO: 0 };
+const counts = { P: 0, A: 0, OT: 0, PL: 0, WO: 0, HD: 0 };
 let totalUnits = 0;
 let totalOTHours = 0;
 
@@ -622,6 +630,7 @@ if (rawStatus.startsWith('OT-')) {
 if (counts[baseStatus] !== undefined) counts[baseStatus]++;
 
 if(baseStatus === 'P' || baseStatus === 'PL') totalUnits += 1;
+if(baseStatus === 'HD') totalUnits += 0.5;
 if(baseStatus === 'OT') {
     totalUnits += 1; // Assuming OT means they were also present for base day
     totalUnits += (otHrs / 8); // Assuming 8 standard hours = 1 payout unit
