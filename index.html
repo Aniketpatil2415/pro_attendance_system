@@ -282,7 +282,8 @@ overflow: hidden;
 .day-box.empty { background: transparent; border: none; cursor: default; }
 
 .day-number { font-size: clamp(0.8rem, 3vw, 1rem); font-weight: 700; z-index: 1; }
-.day-status { font-size: clamp(0.6rem, 2vw, 0.75rem); margin-top: 2px; font-weight: 800; z-index: 1; }
+/* Updated line-height and white-space for multi-line OT status */
+.day-status { font-size: clamp(0.6rem, 2vw, 0.75rem); margin-top: 2px; font-weight: 800; z-index: 1; white-space: pre-line; line-height: 1.2; text-align: center; }
 
 .status-P { border-color: var(--present); background: var(--present-bg); }
 .status-P .day-status { color: var(--present); }
@@ -317,6 +318,7 @@ box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
 .status-btn {
 padding: 12px; border: none; border-radius: 10px; font-weight: 700;
 font-size: 0.9rem; color: white; display: flex; align-items: center; justify-content: center;
+cursor: pointer;
 }
 
 .btn-full { grid-column: span 2; }
@@ -330,6 +332,7 @@ font-size: 0.9rem; color: white; display: flex; align-items: center; justify-con
 .close-modal-btn {
 margin-top: 15px; padding: 12px; width: 100%; background: transparent;
 border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 10px; font-weight: 700;
+cursor: pointer;
 }
 
 /* --- Loader --- */
@@ -412,10 +415,24 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <div class="status-options">
 <button class="status-btn btn-p" data-status="P">Present (P)</button>
 <button class="status-btn btn-a" data-status="A">Absent (A)</button>
-<button class="status-btn btn-ot" data-status="OT">Overtime (OT)</button>
+<!-- Modified OT Button -->
+<button class="status-btn btn-ot" id="btn-ot-trigger">Overtime (OT)</button>
 <button class="status-btn btn-pl" data-status="PL">Paid Leave (PL)</button>
 <button class="status-btn btn-wo btn-full" data-status="WO">Weekly Off (WO)</button>
 <button class="status-btn btn-none btn-full" data-status="None">Clear Entry</button>
+
+<!-- New Hidden OT Hours Container -->
+<div id="ot-hours-container" class="btn-full" style="display: none; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); text-align: left;">
+    <p style="margin-bottom: 10px; font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Select Overtime Hours:</p>
+    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-8">8 Hours</button>
+        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-12">12 Hours</button>
+    </div>
+    <div style="display: flex; gap: 10px;">
+        <input type="number" id="custom-ot-hours" placeholder="Custom Hrs" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(0,0,0,0.5); color: white; outline: none; font-weight: 600;">
+        <button class="status-btn" style="background: var(--primary); color: white; padding: 10px 15px;" id="btn-ot-custom-save">Save OT</button>
+    </div>
+</div>
 </div>
 <button class="close-modal-btn" id="close-modal-btn">Cancel</button>
 </div>
@@ -454,6 +471,8 @@ const authSection = document.getElementById('auth-section');
 const dashboardSection = document.getElementById('dashboard-section');
 const loadingOverlay = document.getElementById('loading-overlay');
 const statusModal = document.getElementById('status-modal');
+const otContainer = document.getElementById('ot-hours-container');
+const customOtInput = document.getElementById('custom-ot-hours');
 
 const showLoading = (show) => { loadingOverlay.style.display = show ? 'flex' : 'none'; };
 
@@ -555,9 +574,18 @@ calendar.appendChild(emptyDiv);
 }
 
 for (let i = 1; i <= daysInMonth; i++) {
-const status = currentMonthData[i] || 'None';
-const statusClass = status !== 'None' ? `status-${status}` : '';
-const displayStatus = status !== 'None' ? status : '';
+// Modified to support OT hours display
+const rawStatus = currentMonthData[i] || 'None';
+let baseStatus = rawStatus;
+let displayTxt = rawStatus !== 'None' ? rawStatus : '';
+
+if(rawStatus.startsWith('OT-')) {
+    baseStatus = 'OT';
+    displayTxt = `OT\n${rawStatus.split('-')[1]}h`;
+}
+
+const statusClass = baseStatus !== 'None' ? `status-${baseStatus}` : '';
+const displayStatus = displayTxt;
 
 const dayDiv = document.createElement('div');
 dayDiv.className = `day-box ${statusClass}`;
@@ -578,16 +606,31 @@ calendar.appendChild(dayDiv);
 function processAnalytics() {
 const counts = { P: 0, A: 0, OT: 0, PL: 0, WO: 0 };
 let totalUnits = 0;
+let totalOTHours = 0;
 
 for (let day in currentMonthData) {
-const status = currentMonthData[day];
-if (counts[status] !== undefined) counts[status]++;
+const rawStatus = currentMonthData[day];
+let baseStatus = rawStatus;
+let otHrs = 0;
 
-if(status === 'P' || status === 'PL') totalUnits += 1;
-if(status === 'OT') totalUnits += 1.5; 
+if (rawStatus.startsWith('OT-')) {
+    baseStatus = 'OT';
+    otHrs = parseFloat(rawStatus.split('-')[1]) || 0;
+    totalOTHours += otHrs;
+}
+
+if (counts[baseStatus] !== undefined) counts[baseStatus]++;
+
+if(baseStatus === 'P' || baseStatus === 'PL') totalUnits += 1;
+if(baseStatus === 'OT') {
+    totalUnits += 1; // Assuming OT means they were also present for base day
+    totalUnits += (otHrs / 8); // Assuming 8 standard hours = 1 payout unit
+}
 }
 
 for (let key in counts) document.getElementById(`count-${key}`).innerText = counts[key];
+// Show total hours in the OT block if there are any, else standard count
+document.getElementById(`count-OT`).innerText = totalOTHours > 0 ? `${totalOTHours}h` : counts.OT;
 
 document.getElementById('payout-calc').innerText = totalUnits.toFixed(1);
 
@@ -641,14 +684,40 @@ setupRealtimeListener();
 document.getElementById('close-modal-btn').addEventListener('click', () => {
 statusModal.style.display = 'none';
 activeSelectedDay = null;
+otContainer.style.display = 'none';
+customOtInput.value = '';
 });
 
-document.querySelectorAll('.status-btn').forEach(btn => {
+// OT Specific Listeners
+document.getElementById('btn-ot-trigger').addEventListener('click', (e) => {
+e.preventDefault();
+otContainer.style.display = otContainer.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('btn-ot-8').addEventListener('click', () => saveOtAction('8'));
+document.getElementById('btn-ot-12').addEventListener('click', () => saveOtAction('12'));
+document.getElementById('btn-ot-custom-save').addEventListener('click', () => {
+const val = customOtInput.value.trim();
+if(val) saveOtAction(val);
+});
+
+function saveOtAction(hours) {
+if(activeSelectedDay) saveDayData(activeSelectedDay, 'OT-' + hours);
+statusModal.style.display = 'none';
+activeSelectedDay = null;
+otContainer.style.display = 'none';
+customOtInput.value = '';
+}
+
+// Ensure normal buttons save data as expected, EXCLUDING the OT trigger button
+document.querySelectorAll('.status-btn[data-status]').forEach(btn => {
 btn.addEventListener('click', (e) => {
 const selectedStatus = e.target.getAttribute('data-status');
 if(activeSelectedDay) saveDayData(activeSelectedDay, selectedStatus);
 statusModal.style.display = 'none';
 activeSelectedDay = null;
+otContainer.style.display = 'none';
+customOtInput.value = '';
 });
 });
 </script>
