@@ -176,7 +176,6 @@ margin-top: 4px;
 text-shadow: 0 0 10px var(--primary-glow);
 }
 
-/* Updated Stats Grid for 7 items to wrap symmetrically */
 .stats-grid {
 display: flex;
 flex-wrap: wrap;
@@ -292,6 +291,7 @@ overflow: hidden;
 .day-box.empty { background: transparent; border: none; cursor: default; }
 
 .day-number { font-size: clamp(0.8rem, 3vw, 1rem); font-weight: 700; z-index: 1; }
+/* Updated line-height and white-space for multi-line OT and Shift status */
 .day-status { font-size: clamp(0.55rem, 2vw, 0.7rem); margin-top: 2px; font-weight: 800; z-index: 1; white-space: pre-line; line-height: 1.1; text-align: center; }
 
 .status-P { border-color: var(--present); background: var(--present-bg); }
@@ -409,6 +409,7 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 
 <div class="calendar-actions">
 <h2 id="monthYearDisplay" style="font-size: 1.1rem; font-weight: 700;"></h2>
+<!-- Backup/Export Button -->
 <button id="export-csv-btn" class="export-btn">⬇ Export Backup</button>
 </div>
 
@@ -443,6 +444,7 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <div class="status-options">
 <button class="status-btn btn-p" data-status="P">Present (P)</button>
 <button class="status-btn btn-a" data-status="A">Absent (A)</button>
+<!-- Modified OT Button -->
 <button class="status-btn btn-ot" id="btn-ot-trigger">Overtime (OT)</button>
 <button class="status-btn btn-pl" data-status="PL">Paid Leave (PL)</button>
 <button class="status-btn btn-hd" data-status="HD">Half Day (HD)</button>
@@ -454,8 +456,8 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <div id="ot-hours-container" class="btn-full" style="display: none; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; border: 1px solid var(--card-border); text-align: left;">
     <p style="margin-bottom: 10px; font-size: 0.85rem; font-weight: 700; color: var(--text-muted);">Select Overtime Hours:</p>
     <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-8">4 Hours</button>
-        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-12">8 Hours</button>
+        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-4">4 Hours</button>
+        <button class="status-btn" style="flex: 1; background: var(--ot); color: #000;" id="btn-ot-12">12 Hours</button>
     </div>
     <div style="display: flex; gap: 10px;">
         <input type="number" id="custom-ot-hours" placeholder="Custom Hrs" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--card-border); background: rgba(0,0,0,0.5); color: white; outline: none; font-weight: 600;">
@@ -743,7 +745,7 @@ e.preventDefault();
 otContainer.style.display = otContainer.style.display === 'none' ? 'block' : 'none';
 });
 
-document.getElementById('btn-ot-8').addEventListener('click', () => saveOtAction('8'));
+document.getElementById('btn-ot-4').addEventListener('click', () => saveOtAction('4'));
 document.getElementById('btn-ot-12').addEventListener('click', () => saveOtAction('12'));
 document.getElementById('btn-ot-custom-save').addEventListener('click', () => {
 const val = customOtInput.value.trim();
