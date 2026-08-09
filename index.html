@@ -285,8 +285,8 @@ overflow: hidden;
 .day-box.empty { background: transparent; border: none; cursor: default; }
 
 .day-number { font-size: clamp(0.8rem, 3vw, 1rem); font-weight: 700; z-index: 1; }
-/* Updated line-height and white-space for multi-line OT status */
-.day-status { font-size: clamp(0.6rem, 2vw, 0.75rem); margin-top: 2px; font-weight: 800; z-index: 1; white-space: pre-line; line-height: 1.2; text-align: center; }
+/* Updated line-height and white-space for multi-line OT and Shift status */
+.day-status { font-size: clamp(0.55rem, 2vw, 0.7rem); margin-top: 2px; font-weight: 800; z-index: 1; white-space: pre-line; line-height: 1.1; text-align: center; }
 
 .status-P { border-color: var(--present); background: var(--present-bg); }
 .status-P .day-status { color: var(--present); }
@@ -317,7 +317,7 @@ box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
 
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-.modal-content h3 { margin-bottom: 1.5rem; font-weight: 800; }
+.modal-content h3 { margin-bottom: 1rem; font-weight: 800; }
 .status-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 .status-btn {
@@ -419,6 +419,19 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <div id="status-modal">
 <div class="modal-content">
 <h3>Mark Status</h3>
+
+<!-- NEW: Shift Selection Modifier -->
+<div style="margin-bottom: 15px; text-align: left;">
+    <label style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 5px;">Shift (Optional):</label>
+    <select id="shift-select" style="width: 100%; padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid var(--card-border); color: var(--text-main); outline: none; font-size: 0.9rem; font-weight: 700;">
+        <option value="">No Shift Selected</option>
+        <option value="General">General Shift</option>
+        <option value="Morning">Morning Shift</option>
+        <option value="Afternoon">Afternoon Shift</option>
+        <option value="Night">Night Shift</option>
+    </select>
+</div>
+
 <div class="status-options">
 <button class="status-btn btn-p" data-status="P">Present (P)</button>
 <button class="status-btn btn-a" data-status="A">Absent (A)</button>
@@ -481,6 +494,7 @@ const loadingOverlay = document.getElementById('loading-overlay');
 const statusModal = document.getElementById('status-modal');
 const otContainer = document.getElementById('ot-hours-container');
 const customOtInput = document.getElementById('custom-ot-hours');
+const shiftSelect = document.getElementById('shift-select');
 
 const showLoading = (show) => { loadingOverlay.style.display = show ? 'flex' : 'none'; };
 
@@ -582,14 +596,22 @@ calendar.appendChild(emptyDiv);
 }
 
 for (let i = 1; i <= daysInMonth; i++) {
-// Modified to support OT hours display
-const rawStatus = currentMonthData[i] || 'None';
+// Modifying display parsing to handle both OT logic and Shift logic natively
+const fullStatus = currentMonthData[i] || 'None';
+const rawStatus = fullStatus.split('|')[0];
+const shiftText = fullStatus.split('|')[1];
+
 let baseStatus = rawStatus;
 let displayTxt = rawStatus !== 'None' ? rawStatus : '';
 
 if(rawStatus.startsWith('OT-')) {
     baseStatus = 'OT';
     displayTxt = `OT\n${rawStatus.split('-')[1]}h`;
+}
+
+if (shiftText) {
+    const shortShift = shiftText.substring(0,3).toUpperCase();
+    displayTxt += `\n${shortShift}`;
 }
 
 const statusClass = baseStatus !== 'None' ? `status-${baseStatus}` : '';
@@ -617,7 +639,10 @@ let totalUnits = 0;
 let totalOTHours = 0;
 
 for (let day in currentMonthData) {
-const rawStatus = currentMonthData[day];
+// Splitting string to ignore shift modifier during pure calculation
+const fullStatus = currentMonthData[day];
+const rawStatus = fullStatus.split('|')[0];
+
 let baseStatus = rawStatus;
 let otHrs = 0;
 
@@ -632,13 +657,12 @@ if (counts[baseStatus] !== undefined) counts[baseStatus]++;
 if(baseStatus === 'P' || baseStatus === 'PL') totalUnits += 1;
 if(baseStatus === 'HD') totalUnits += 0.5;
 if(baseStatus === 'OT') {
-    totalUnits += 1; // Assuming OT means they were also present for base day
-    totalUnits += (otHrs / 8); // Assuming 8 standard hours = 1 payout unit
+    totalUnits += 1; 
+    totalUnits += (otHrs / 8); 
 }
 }
 
 for (let key in counts) document.getElementById(`count-${key}`).innerText = counts[key];
-// Show total hours in the OT block if there are any, else standard count
 document.getElementById(`count-OT`).innerText = totalOTHours > 0 ? `${totalOTHours}h` : counts.OT;
 
 document.getElementById('payout-calc').innerText = totalUnits.toFixed(1);
@@ -664,7 +688,9 @@ const days = Object.keys(currentMonthData).map(Number).sort((a, b) => a - b);
 
 days.forEach(day => {
 const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-csvContent += `${formattedDate},${currentMonthData[day]}\n`;
+// Replacing pipe with dash for clean CSV reading
+const cleanStatus = currentMonthData[day].replace('|', ' - Shift: ');
+csvContent += `${formattedDate},${cleanStatus}\n`;
 });
 
 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -695,6 +721,7 @@ statusModal.style.display = 'none';
 activeSelectedDay = null;
 otContainer.style.display = 'none';
 customOtInput.value = '';
+shiftSelect.value = '';
 });
 
 // OT Specific Listeners
@@ -711,22 +738,38 @@ if(val) saveOtAction(val);
 });
 
 function saveOtAction(hours) {
-if(activeSelectedDay) saveDayData(activeSelectedDay, 'OT-' + hours);
+const shift = shiftSelect.value;
+let finalStatus = 'OT-' + hours;
+if(shift) finalStatus += '|' + shift;
+
+if(activeSelectedDay) saveDayData(activeSelectedDay, finalStatus);
+
 statusModal.style.display = 'none';
 activeSelectedDay = null;
 otContainer.style.display = 'none';
 customOtInput.value = '';
+shiftSelect.value = '';
 }
 
-// Ensure normal buttons save data as expected, EXCLUDING the OT trigger button
+// Ensure normal buttons save data safely WITH shift modifiers
 document.querySelectorAll('.status-btn[data-status]').forEach(btn => {
 btn.addEventListener('click', (e) => {
 const selectedStatus = e.target.getAttribute('data-status');
-if(activeSelectedDay) saveDayData(activeSelectedDay, selectedStatus);
+const shift = shiftSelect.value;
+let finalStatus = selectedStatus;
+
+// Only append shift if selected and not clearing entry
+if (shift && selectedStatus !== 'None' && selectedStatus !== 'A' && selectedStatus !== 'WO') {
+    finalStatus += '|' + shift;
+}
+
+if(activeSelectedDay) saveDayData(activeSelectedDay, finalStatus);
+
 statusModal.style.display = 'none';
 activeSelectedDay = null;
 otContainer.style.display = 'none';
 customOtInput.value = '';
+shiftSelect.value = '';
 });
 });
 </script>
