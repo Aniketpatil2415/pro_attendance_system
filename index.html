@@ -462,7 +462,7 @@ animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, onSnapshot, enableIndexedDbPersistence, deleteField } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
 apiKey: "AIzaSyD9hQAi3C2NAoS89TSi7Oeo1Dx5ZQ7B7nQ",
@@ -560,19 +560,19 @@ if(!currentUser) return;
 const yearMonth = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
 const docRef = doc(db, `users/${currentUser.uid}/attendance`, yearMonth);
 
-const updatePayload = {};
-updatePayload[day] = status;
-
 try {
-await setDoc(docRef, updatePayload, { merge: true });
-if(status === 'None') {
-delete currentMonthData[day];
-const tempPayload = { ...currentMonthData };
-tempPayload[day] = null;
-await setDoc(docRef, tempPayload);
-}
+    if(status === 'None') {
+        const deletePayload = {};
+        deletePayload[day] = deleteField();
+        await setDoc(docRef, deletePayload, { merge: true });
+        delete currentMonthData[day];
+    } else {
+        const updatePayload = {};
+        updatePayload[day] = status;
+        await setDoc(docRef, updatePayload, { merge: true });
+    }
 } catch(error) {
-alert("Failed to save entry. Check permissions.");
+    alert("Failed to update system records. Check permissions.");
 }
 }
 
@@ -596,10 +596,11 @@ calendar.appendChild(emptyDiv);
 }
 
 for (let i = 1; i <= daysInMonth; i++) {
-// Modifying display parsing to handle both OT logic and Shift logic natively
-const fullStatus = currentMonthData[i] || 'None';
+const dbValue = currentMonthData[i];
+const fullStatus = (dbValue === null || dbValue === undefined) ? 'None' : dbValue;
+
 const rawStatus = fullStatus.split('|')[0];
-const shiftText = fullStatus.split('|')[1];
+const shiftText = fullStatus.includes('|') ? fullStatus.split('|')[1] : '';
 
 let baseStatus = rawStatus;
 let displayTxt = rawStatus !== 'None' ? rawStatus : '';
@@ -639,8 +640,9 @@ let totalUnits = 0;
 let totalOTHours = 0;
 
 for (let day in currentMonthData) {
-// Splitting string to ignore shift modifier during pure calculation
 const fullStatus = currentMonthData[day];
+if (fullStatus === null || fullStatus === undefined || fullStatus === 'None') continue;
+
 const rawStatus = fullStatus.split('|')[0];
 
 let baseStatus = rawStatus;
@@ -688,9 +690,11 @@ const days = Object.keys(currentMonthData).map(Number).sort((a, b) => a - b);
 
 days.forEach(day => {
 const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-// Replacing pipe with dash for clean CSV reading
-const cleanStatus = currentMonthData[day].replace('|', ' - Shift: ');
-csvContent += `${formattedDate},${cleanStatus}\n`;
+const dbValue = currentMonthData[day];
+if (dbValue !== null && dbValue !== undefined) {
+    const cleanStatus = dbValue.replace('|', ' - Shift: ');
+    csvContent += `${formattedDate},${cleanStatus}\n`;
+}
 });
 
 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
