@@ -152,7 +152,7 @@ cursor: pointer;
 /* --- Advanced Analytics Grid --- */
 .analytics-grid {
 display: grid;
-grid-template-columns: 1fr; /* Changed to full width since Payout is hidden */
+grid-template-columns: 1fr; 
 gap: 10px;
 margin-bottom: 15px;
 }
@@ -268,13 +268,13 @@ letter-spacing: 0.5px;
 .calendar-grid {
 display: grid;
 grid-template-columns: repeat(7, 1fr);
-gap: 6px; /* Increased gap for better touch targets */
+gap: 6px; 
 width: 100%;
 margin-bottom: 20px;
 }
 
 .day-box {
-aspect-ratio: 1 / 1.25; /* Made the tiles taller for mobile */
+aspect-ratio: 1 / 1.25; 
 width: 100%;
 background: rgba(255,255,255,0.03);
 border: 1px solid var(--card-border);
@@ -292,7 +292,6 @@ overflow: hidden;
 .day-box:active:not(.empty) { transform: scale(0.9); }
 .day-box.empty { background: transparent; border: none; cursor: default; }
 
-/* Increased Font Sizes for Calendar Data */
 .day-number { font-size: clamp(0.95rem, 4vw, 1.2rem); font-weight: 800; z-index: 1; }
 .day-status { font-size: clamp(0.65rem, 2.5vw, 0.85rem); margin-top: 4px; font-weight: 800; z-index: 1; white-space: pre-line; line-height: 1.2; text-align: center; }
 
@@ -652,6 +651,7 @@ calendar.appendChild(dayDiv);
 }
 
 function processAnalytics() {
+// Note: P count will be incremented for both Present and OT entries.
 const counts = { P: 0, A: 0, OT: 0, PL: 0, WO: 0, HD: 0, L: 0 };
 let totalUnits = 0;
 let totalOTHours = 0;
@@ -671,13 +671,19 @@ if (rawStatus.startsWith('OT-')) {
     totalOTHours += otHrs;
 }
 
-if (counts[baseStatus] !== undefined) counts[baseStatus]++;
+// Ensure OT increments P as well
+if (baseStatus === 'OT') {
+    counts['P']++;
+} else if (counts[baseStatus] !== undefined) {
+    counts[baseStatus]++;
+}
 
 if(baseStatus === 'P' || baseStatus === 'PL') totalUnits += 1;
 if(baseStatus === 'HD') totalUnits += 0.5;
-// Note: 'L' and 'A' don't add to payout units.
+
+// If it's an OT day, the base P unit has been counted implicitly if we assume base pay is there
 if(baseStatus === 'OT') {
-    totalUnits += 1; 
+    totalUnits += 1; // The implicit "Present" base day
     totalUnits += (otHrs / 8); 
 }
 }
